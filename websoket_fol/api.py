@@ -1,27 +1,32 @@
-import asyncio,datetime
+import asyncio
 import websockets
-import time, json
-from  bot import Bot
+import json, datetime
+from bot import Bot
+
+# Initialize bot
 
 connected = set()
+bot_ = Bot()
+bot_.get_local_driver()
+bot_.work()
 
-async def server(websocket, path):
-    # Register.
+async def echo(websocket, path):
     connected.add(websocket)
-    bot_ = Bot()
-    bot_.get_local_driver()
-    bot_.work()
     try:
-        while True:
+        async for message in websocket:
             for conn in connected:
-                main_data = await bot_.return_main_data_for_all_windows_parallel()
+                await conn.send(json.dumps({"data": "websocket has been connected !"}))
+                await websocket.send(f"Echo: {message}")
+                try:
+                    main_data = await bot_.return_main_data_for_all_windows_parallel()
+                except Exception as e : websocket.send(f"error: {message}")
                 await conn.send(json.dumps({"data": main_data}))
                 print(f'\n\n\n Dattime : {datetime.datetime.now()}')
+            await websocket.send(f"Echo: {message}")
     finally:
-        # Unregister.
         connected.remove(websocket)
 
-start_server = websockets.serve(server, "localhost", 8765)
+start_server = websockets.serve(echo, "0.0.0.0", 8765)
 
 asyncio.get_event_loop().run_until_complete(start_server)
 asyncio.get_event_loop().run_forever()
